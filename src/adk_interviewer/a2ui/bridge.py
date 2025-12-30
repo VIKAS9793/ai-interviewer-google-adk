@@ -261,7 +261,7 @@ async def forward_to_adk(message: str) -> str:
                                     # Fallback string check
                                     if "RESOURCE_EXHAUSTED" in data_content or "429" in data_content:
                                         return "⚠️ **Quota Exceeded**\n\nThe AI service has hit its free tier usage limit (20 requests/day). Please try again later or check your API plan."
-                                except:
+                                except Exception:
                                     pass
                                     
                                 return f"⚠️ Service temporarily unavailable. Please try again."
