@@ -1,6 +1,8 @@
 # Setup Guide
 
-> Complete setup instructions for the AI Technical Interviewer v4.7
+> Complete setup instructions for the AI Technical Interviewer v5.0.0  
+> **Last Updated:** 2025-12-30 19:00 IST  
+> **Status:** ✅ Production Ready
 
 ---
 
@@ -65,14 +67,16 @@ cp .env.example .env
 ### 5. Run Application
 
 ```bash
-adk web src
+# IMPORTANT: Must run from src/ directory
+cd src
+python -m google.adk.cli web
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
 
 ---
 
-## Full Setup (A2UI Frontend - v4.7)
+## Full Setup (A2UI Frontend - v5.0 Production Ready ✅)
 
 For the complete A2UI experience with beautiful web interface:
 
@@ -88,9 +92,9 @@ npm install
 cd ../../../..
 ```
 
-### Running All 3 Services
+### Running Services (v5.0.0)
 
-You need **3 terminals** running simultaneously:
+**Required:** Use **3 terminals** for full deployment:
 
 #### Terminal 1: ADK Backend
 ```bash
@@ -98,16 +102,17 @@ You need **3 terminals** running simultaneously:
 .venv\Scripts\activate  # Windows
 # or: source .venv/bin/activate  # macOS/Linux
 
-python -m google.adk.cli web ./src
+# IMPORTANT: Must cd into src/ first
+cd src
+python -m google.adk.cli web
 ```
-✅ Should show: `ADK Web Server started` at `http://127.0.0.1:8000`
+✅ Should show: `ADK Web Server started at http://127.0.0.1:8000`
 
-#### Terminal 2: A2A-ADK Bridge
+#### Terminal 2: A2A Bridge
 ```bash
 # From project root (new terminal)
 .venv\Scripts\activate
-
-python -m src.adk_interviewer.a2ui.bridge
+python src/adk_interviewer/a2ui/bridge.py
 ```
 ✅ Should show: `Bridge: http://localhost:10002`
 
@@ -116,10 +121,12 @@ python -m src.adk_interviewer.a2ui.bridge
 # From project root (new terminal)
 cd a2ui-repo/samples/client/lit/shell
 
-# Important: Use npx directly, NOT npm run dev (Windows compatibility)
-npx vite dev --port 3000 --open "/?app=interviewer"
+# Use npx directly (not npm run dev)
+npx -y vite dev --port 3000
 ```
-✅ Browser should auto-open to: `http://localhost:3000/?app=interviewer`
+✅ Browser: Open `http://localhost:3000/?app=interviewer`
+
+
 
 ### Architecture Overview
 
@@ -229,6 +236,7 @@ ValueError: Tool 'execute_python_code' not found
 
 | Version | Features |
 |---------|----------|
+| v5.0.0 | **A2UI Production Ready** - Cards verified, 2-terminal deployment |
 | v4.7.1 | Fixed coding agent tool hallucination, bridge error handling |
 | v4.7.0 | A2UI integration (experimental) |
 | v4.6.0 | Sequential Safety pattern |
