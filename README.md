@@ -26,7 +26,14 @@
 
 ---
 
-> **v4.7.1 - A2UI Web Interface (Validated)** Beautiful, component-based web UI via A2A-ADK bridge. Includes Sequential Safety, guided learning, and multi-dimensional scoring. Powered by Google's Agent Development Kit, Gemini, and [A2UI](https://github.com/google/A2UI). See [A2UI Integration Journey](docs/A2UI_INTEGRATION_JOURNEY.md).
+> **v5.0.0 - A2UI Web Interface ✅ PRODUCTION READY (2025-12-30)**  
+> Beautiful, component-based web UI via A2A-ADK bridge. **Cards rendering successfully** - verified production-ready. Includes Sequential Safety, guided learning, and multi-dimensional scoring. Powered by Google's Agent Development Kit, Gemini, and [A2UI](https://github.com/google/A2UI). See [A2UI Integration Journey](docs/A2UI_INTEGRATION_JOURNEY.md).
+
+**Latest Update (2025-12-30 18:52 IST):**
+- ✅ A2UI Card rendering **verified working** with interview flow screenshots
+- ✅ Multi-turn conversation with scoring (8.5/10) tested successfully
+- ✅ Bridge fixes: path corrections, session handling, data variable initialization
+- ✅ Production-ready implementation
 
 ---
 
@@ -81,34 +88,50 @@ pip install -r requirements.txt
 cp .env.example .env
 # Add your GOOGLE_API_KEY to .env
 
-# Run
-python -m google.adk.cli web ./src
+# Run (IMPORTANT: Must run from src/ directory)
+cd src
+python -m google.adk.cli web
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000) 🚀
 
-### A2UI Web Interface (v4.7.1)
+### A2UI Web Interface (v5.0.0) ✅
+
+**Status**: Production-ready, verified 2025-12-30 with interview flow testing.
 
 Run **3 terminals** simultaneously:
 
 ```bash
-# Terminal 1 - ADK Backend
-python -m google.adk.cli web ./src
+# Terminal 1 - ADK Backend (Port 8000) - MUST run from src/
+cd src
+python -m google.adk.cli web
 
-# Terminal 2 - A2A Bridge  
-python -m src.adk_interviewer.a2ui.bridge
+# Terminal 2 - A2A Bridge (Port 10002)
+python src/adk_interviewer/a2ui/bridge.py
 
-# Terminal 3 - A2UI Frontend (Windows-compatible)
+# Terminal 3 - A2UI Frontend (Port 3000)
 cd a2ui-repo/samples/client/lit/shell
-npx vite dev --port 3000 --open "/?app=interviewer"
+npx -y vite dev --port 3000
 ```
-
-> ⚠️ **Windows Users:** Use `npx vite dev` directly, NOT `npm run dev` (wireit incompatibility). See [Troubleshooting](docs/SETUP.md#troubleshooting).
 
 Open [http://localhost:3000/?app=interviewer](http://localhost:3000/?app=interviewer) 🎨
 
----
+> ✅ **Verified Working**: Cards render correctly, schema compliant, production-ready  
+> ⚠️ **Windows Users:** Use `npx vite dev` directly, NOT `npm run dev` (wireit incompatibility)
 
+### Interview Flow Screenshots
+
+See the complete interview experience in action:
+
+| Step | Screenshot |
+|------|------------|
+| 1. Question | ![Question](assets/Interview%20flow/1.png) |
+| 2. Answer | ![Answer](assets/Interview%20flow/2.png) |
+| 3. Evaluation | ![Evaluation](assets/Interview%20flow/3.png) |
+| 4. Feedback | ![Feedback](assets/Interview%20flow/4.png) |
+| 5. Summary | ![Summary](assets/Interview%20flow/5.png) |
+
+---
 
 
 ## 🏗️ Architecture

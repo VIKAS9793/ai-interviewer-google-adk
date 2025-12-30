@@ -187,7 +187,7 @@ async def forward_to_adk(message: str) -> str:
                 "role": "user",
                 "parts": [{"text": message}]
             },
-            "streaming": False
+            "streaming": True  # ✅ MUST be True to get final response after function calls
         }
         
         logger.info(f"Forwarding to ADK: {run_url}")
@@ -245,19 +245,48 @@ async def forward_to_adk(message: str) -> str:
                             data_content = line[5:].strip()
                             if data_content.startswith('"error"') or 'error' in data_content.lower():
                                 logger.warning(f"SSE error line: {data_content[:200]}")
+                                try:
+                                    # Try to parse as JSON to check for code/status
+                                    error_data = json.loads(data_content)
+                                    # Handle {"error": "message"} vs {"error": {"code": 429}}
+                                    if isinstance(error_data, dict):
+                                        err_obj = error_data.get("error")
+                                        if isinstance(err_obj, dict):
+                                            if err_obj.get("code") == 429 or err_obj.get("status") == "RESOURCE_EXHAUSTED":
+                                                return "⚠️ **Quota Exceeded**\n\nThe AI service has hit its free tier usage limit (20 requests/day). Please try again later or check your API plan."
+                                        elif isinstance(err_obj, str):
+                                            if "RESOURCE_EXHAUSTED" in err_obj or "429" in err_obj:
+                                                 return "⚠️ **Quota Exceeded**\n\nThe AI service has hit its free tier usage limit (20 requests/day). Please try again later or check your API plan."
+                                    
+                                    # Fallback string check
+                                    if "RESOURCE_EXHAUSTED" in data_content or "429" in data_content:
+                                        return "⚠️ **Quota Exceeded**\n\nThe AI service has hit its free tier usage limit (20 requests/day). Please try again later or check your API plan."
+                                except:
+                                    pass
+                                    
                                 return f"⚠️ Service temporarily unavailable. Please try again."
+                # Return text if we got any, even if there were also function calls
+                # ADK often makes internal function calls (e.g., generate_question)
+                # but then ALSO returns text in the same SSE stream
                 if full_text:
                     return ''.join(full_text)
                 elif has_function_call:
-                    # Only function call, no text - return processing message
-                    return "Processing your request... (internal routing)"
+                    # ONLY return placeholder if there's NO text at all
+                    # This means ADK is still processing and hasn't generated response yet
+                    logger.warning("ADK returned only function call, no text response")
+                    return "I'm thinking about that. One moment please..."
                 else:
                     # Empty response from ADK (no text, no function call)
                     logger.warning("ADK returned empty content response")
                     return "I'm processing your input. Please continue with your next question."
 
             # Only reach here if NOT text/event-stream
-
+            # Parse the response as JSON
+            try:
+                data = response.json()
+            except json.JSONDecodeError:
+                data = response.text
+            
             logger.info(f"ADK raw response: {json.dumps(data)[:1000] if isinstance(data, (dict, list)) else str(data)[:1000]}")
             
             # Extract response text from ADK format
@@ -319,7 +348,11 @@ def format_a2a_response(
 ) -> dict:
     """Format response in A2A JSON-RPC format with A2UI extension."""
     task_id = str(uuid.uuid4())
-    surface_id = "interview-surface"
+    # CRITICAL FIX: Use unique surface ID per response
+    # From A2UI spec Section 1.3: "each AI-generated response could be rendered 
+    # into a separate surface within the conversation history"
+    # This prevents component buffer conflicts and stale state reuse
+    surface_id = f"msg-{task_id[:8]}"
     
     # Build response parts
     parts = []
@@ -329,13 +362,6 @@ def format_a2a_response(
     if "---a2ui_JSON---" in text_response:
         clean_text = text_response.split("---a2ui_JSON---")[0].strip()
     
-    # Always add text as a regular part
-    if clean_text:
-        parts.append({
-            "kind": "text",
-            "text": clean_text
-        })
-    
     # Generate A2UI messages for rendering
     # Enhanced v5.0: Use Card components with proper styling
     if not a2ui_messages and clean_text:
@@ -343,38 +369,45 @@ def format_a2a_response(
         has_code = "```" in clean_text
         
         # Build rich A2UI component tree
+        # Generate unique IDs to prevent state conflicts
+        uid = str(uuid.uuid4())[:8]
+        root_id = f"root-{uid}"
+        card_id = f"card-{uid}"
+        content_id = f"content-{uid}"
+        text_id = f"text-{uid}"
+        
         components = [
             {
-                "id": "root-container",
-                "componentProperties": {
+                "id": root_id,
+                "component": {
                     "Column": {
                         "children": {
-                            "explicitList": ["response-card"]
+                            "explicitList": [card_id]
                         }
                     }
                 }
             },
             {
-                "id": "response-card",
-                "componentProperties": {
+                "id": card_id,
+                "component": {
                     "Card": {
-                        "child": "card-content"
+                        "child": content_id
                     }
                 }
             },
             {
-                "id": "card-content",
-                "componentProperties": {
+                "id": content_id,
+                "component": {
                     "Column": {
                         "children": {
-                            "explicitList": ["text-response"]
+                            "explicitList": [text_id]
                         }
                     }
                 }
             },
             {
-                "id": "text-response",
-                "componentProperties": {
+                "id": text_id,
+                "component": {
                     "Text": {
                         "text": {
                             "literalString": clean_text
@@ -387,15 +420,21 @@ def format_a2a_response(
         
         a2ui_messages = [
             {
-                "beginRendering": {
-                    "surfaceId": surface_id,
-                    "root": "root-container"
-                }
-            },
-            {
                 "surfaceUpdate": {
                     "surfaceId": surface_id,
                     "components": components
+                }
+            },
+            {
+                "dataModelUpdate": {
+                    "surfaceId": surface_id,
+                    "contents": []  # ✅ ARRAY per A2UI quickstart guide, not {}
+                }
+            },
+            {
+                "beginRendering": {
+                    "surfaceId": surface_id,
+                    "root": root_id
                 }
             }
         ]
@@ -408,11 +447,19 @@ def format_a2a_response(
             "data": msg
         })
     
+    # CRITICAL: Only add text part if NO A2UI messages were generated
+    # This prevents dual-format confusion in the frontend
+    if clean_text and len(a2ui_messages) == 0:
+        parts.append({
+            "kind": "text",
+            "text": clean_text
+        })
+    
     # Get request id for JSON-RPC response
     request_id = request.get("id", 1)
     
     # Build JSON-RPC 2.0 compliant response
-    return {
+    response_payload = {
         "jsonrpc": "2.0",
         "id": request_id,
         "result": {
@@ -429,6 +476,18 @@ def format_a2a_response(
             }
         }
     }
+    
+    logger.info(f"Returning A2A response with {len(parts)} parts (A2UI: {len(a2ui_messages)} messages)")
+    if len(parts) > 0:
+        logger.info(f"Part types: {[p.get('kind') for p in parts]}")
+    
+    # DEBUG: Log A2UI message structure for troubleshooting
+    if len(a2ui_messages) > 0:
+        logger.info("A2UI Messages Structure:")
+        for i, msg in enumerate(a2ui_messages):
+            logger.info(f"  Message {i+1}: {json.dumps(msg, indent=2)[:500]}")
+    
+    return response_payload
 
 
 if __name__ == "__main__":

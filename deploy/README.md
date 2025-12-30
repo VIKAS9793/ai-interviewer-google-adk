@@ -13,10 +13,11 @@ cp .env.example .env
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run ADK server
-adk web src/adk_interviewer
+# 3. Run ADK server (MUST run from src/ directory)
+cd src
+python -m google.adk.cli web
 
-# 4. Run A2A Bridge (new terminal)
+# 4. Run A2A Bridge (new terminal, from project root)
 python src/adk_interviewer/a2ui/bridge.py
 
 # 5. Run A2UI Frontend (new terminal)
